@@ -1,0 +1,5 @@
+{
+  "name": "AI News Pulse",
+  "description": "A sophisticated AI news aggregator that tracks real-time developments in Artificial Intelligence using Gemini-powered web search. Enter keywords to filter news and stay updated with the latest breakthroughs.",
+  "requestFramePermissions": []
+}
