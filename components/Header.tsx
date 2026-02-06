@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { Cpu, RefreshCw, Sparkles } from 'lucide-react';
+import { Cpu, RefreshCw, Sparkles, LogOut, User as UserIcon } from 'lucide-react';
 import LanguageSelector from './LanguageSelector';
-import { LanguageCode } from '../types';
+import { LanguageCode, User } from '../types';
 
 interface HeaderProps {
   onRefresh: () => void;
@@ -10,9 +10,19 @@ interface HeaderProps {
   lastUpdated: string | null;
   currentLang: LanguageCode;
   onLanguageChange: (lang: LanguageCode) => void;
+  user: User | null;
+  onLogout: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onRefresh, isLoading, lastUpdated, currentLang, onLanguageChange }) => {
+const Header: React.FC<HeaderProps> = ({ 
+  onRefresh, 
+  isLoading, 
+  lastUpdated, 
+  currentLang, 
+  onLanguageChange,
+  user,
+  onLogout
+}) => {
   return (
     <header className="sticky top-0 z-50 glass-effect border-b border-slate-800 px-4 py-4 mb-8">
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
@@ -34,6 +44,22 @@ const Header: React.FC<HeaderProps> = ({ onRefresh, isLoading, lastUpdated, curr
         </div>
 
         <div className="flex items-center gap-4">
+          {user && (
+            <div className="hidden sm:flex items-center gap-3 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 group relative">
+              <div className="bg-blue-500/10 p-1.5 rounded-full text-blue-400">
+                <UserIcon size={14} />
+              </div>
+              <span className="text-xs font-bold text-slate-300 pr-2 border-r border-slate-700">{user.username}</span>
+              <button 
+                onClick={onLogout}
+                className="text-slate-500 hover:text-red-400 transition-colors"
+                title="Logout"
+              >
+                <LogOut size={14} />
+              </button>
+            </div>
+          )}
+
           <LanguageSelector 
             currentLang={currentLang} 
             onLanguageChange={onLanguageChange}

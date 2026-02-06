@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { SavedArticle } from '../types';
-import { Trash2, ExternalLink, BookmarkX, Clock } from 'lucide-react';
+import { Trash2, ExternalLink, BookmarkX, Clock, Zap, ShieldCheck } from 'lucide-react';
 
 interface SavedArticlesSectionProps {
   articles: SavedArticle[];
@@ -34,11 +34,21 @@ const SavedArticlesSection: React.FC<SavedArticlesSectionProps> = ({ articles, o
           <div key={article.id} className="glass-effect p-5 rounded-2xl border border-slate-800 hover:border-slate-700 transition-all group">
             <div className="flex justify-between gap-4">
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2 text-[10px] text-slate-500 font-mono uppercase tracking-widest">
-                  <Clock size={10} />
-                  Saved {new Date(article.savedAt).toLocaleDateString()}
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="flex items-center gap-1 text-[10px] text-slate-500 font-mono uppercase tracking-widest">
+                    <Clock size={10} />
+                    Saved {new Date(article.savedAt).toLocaleDateString()}
+                  </div>
+                  {article.isHighImpact && (
+                    <span className="text-[9px] text-orange-400 font-black uppercase tracking-tighter flex items-center gap-0.5">
+                      <Zap size={10} fill="currentColor" /> High Impact
+                    </span>
+                  )}
+                  <span className="text-[9px] text-blue-500 font-bold uppercase tracking-tighter flex items-center gap-0.5">
+                    <ShieldCheck size={10} /> {article.sourceName}
+                  </span>
                 </div>
-                <h3 className="text-md font-bold text-slate-100 mb-2">
+                <h3 className="text-md font-bold text-slate-100 mb-2 leading-snug">
                   {article.title}
                 </h3>
                 <p className="text-slate-400 text-sm leading-relaxed mb-4">

@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { NewsItem, NewsSource, LanguageCode } from '../types';
-import { ExternalLink, Globe, Bookmark, BookmarkCheck, Share2, Copy, Check, Twitter, Linkedin, X, Languages } from 'lucide-react';
+import { ExternalLink, Globe, Bookmark, BookmarkCheck, Share2, Copy, Check, Twitter, Linkedin, X, Languages, Zap, Activity, Users, ShieldCheck, MapPin } from 'lucide-react';
 
 interface NewsDisplayProps {
   items: NewsItem[];
@@ -37,6 +37,16 @@ const NewsDisplay: React.FC<NewsDisplayProps> = ({ items, sources, savedIds, onT
     window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, '_blank');
   };
 
+  const getDisseminationWidth = (level: string) => {
+    switch (level) {
+      case 'Niche': return '25%';
+      case 'Growing': return '50%';
+      case 'Widespread': return '75%';
+      case 'Global': return '100%';
+      default: return '50%';
+    }
+  };
+
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {isTranslating && (
@@ -49,23 +59,41 @@ const NewsDisplay: React.FC<NewsDisplayProps> = ({ items, sources, savedIds, onT
       <div className={`grid grid-cols-1 gap-6 transition-opacity duration-300 ${isTranslating ? 'opacity-40' : 'opacity-100'}`}>
         {items.map((item) => {
           const isSaved = savedIds.has(item.id) || savedIds.has(item.title);
-          
-          // Use translated content if available and language matches
           const displayTitle = item.translations?.[currentLang]?.title || item.title;
           const displaySummary = item.translations?.[currentLang]?.summary || item.summary;
 
           return (
-            <div key={item.id} className="glass-effect p-6 rounded-2xl shadow-xl hover:border-blue-500/30 transition-all group">
+            <div key={item.id} className={`glass-effect p-6 rounded-2xl shadow-xl transition-all group border-l-4 ${item.isHighImpact ? 'border-l-orange-500 shadow-orange-900/10' : 'border-l-blue-600'}`}>
               <div className="flex justify-between items-start gap-4 mb-3">
                 <div className="flex-1">
-                  {currentLang !== 'en' && item.translations?.[currentLang] && (
-                    <div className="flex items-center gap-1.5 text-[10px] text-blue-400 font-bold uppercase mb-2">
-                      <Languages size={10} /> Translated
-                    </div>
-                  )}
-                  <h3 className="text-lg font-bold text-white group-hover:text-blue-400 transition-colors leading-tight">
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    {item.isHighImpact && (
+                      <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 text-[10px] font-black uppercase tracking-tighter animate-pulse border border-orange-500/20">
+                        <Zap size={10} fill="currentColor" /> High Impact
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[10px] font-bold uppercase border border-slate-700">
+                      <ShieldCheck size={10} /> {item.sourceType}
+                    </span>
+                    {item.location && (
+                      <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 text-[10px] font-bold uppercase border border-blue-500/20">
+                        <MapPin size={10} /> {item.location.name}
+                      </span>
+                    )}
+                    {currentLang !== 'en' && item.translations?.[currentLang] && (
+                      <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase border border-emerald-500/20">
+                        <Languages size={10} /> Translated
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors leading-tight mb-2">
                     {displayTitle}
                   </h3>
+                  <div className="text-slate-500 text-xs font-medium flex items-center gap-2 mb-4">
+                    <span className="text-blue-400">{item.sourceName}</span>
+                    <span className="text-slate-800">•</span>
+                    <span className="flex items-center gap-1"><Users size={12} /> {item.disseminationLevel} Reach</span>
+                  </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
                   <button 
@@ -86,10 +114,41 @@ const NewsDisplay: React.FC<NewsDisplayProps> = ({ items, sources, savedIds, onT
                   </button>
                 </div>
               </div>
-              <p className="text-slate-400 text-sm mb-4 leading-relaxed">
+
+              <p className="text-slate-400 text-sm mb-6 leading-relaxed">
                 {displaySummary}
               </p>
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-800">
+
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-800/50">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><Activity size={10} /> Dissemination</span>
+                    <span className="text-[10px] text-slate-400 font-mono">{item.disseminationLevel}</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-1000 ${item.disseminationLevel === 'Global' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-blue-500'}`}
+                      style={{ width: getDisseminationWidth(item.disseminationLevel) }}
+                    ></div>
+                  </div>
+                </div>
+                <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-800/50">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><Zap size={10} /> Impact Rank</span>
+                    <span className={`text-[10px] font-black ${item.influenceScore > 80 ? 'text-orange-400' : 'text-blue-400'}`}>{item.influenceScore}/100</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {[...Array(5)].map((_, i) => (
+                      <div 
+                        key={i} 
+                        className={`h-2 flex-1 rounded-sm ${i < Math.floor(item.influenceScore / 20) ? (item.influenceScore > 80 ? 'bg-orange-500' : 'bg-blue-500') : 'bg-slate-800'}`}
+                      ></div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-slate-800/50">
                 <span className="text-[10px] font-mono text-slate-600 uppercase tracking-widest">
                   Intelligence Feed
                 </span>

@@ -18,17 +18,28 @@ export async function fetchAiNews(keywords: string, filters: SearchFilters): Pro
 
   const sourceConstraint = filters.specificSource ? ` focusing strictly on news from ${filters.specificSource}` : '';
 
-  const prompt = `Search for the 10 most recent and relevant news stories about AI related to: "${keywords}".
-  Timeframe: ${dateStr}.${sourceConstraint}
+  const prompt = `Perform a high-precision search for the ${filters.itemCount} most recent and relevant news stories about AI.
+  Query: "${keywords}"
   
-  For EACH news item, provide the information in the following EXACT format:
+  CRITICAL SEARCH LOGIC: 
+  - Interpret "AND", "OR", "NOT" as Boolean operators. 
+  - Respect grouping if parentheses are used.
+  - Focus on results from: ${dateStr}.${sourceConstraint}
+  
+  For EACH news item (exactly ${filters.itemCount} items), provide the information AND an influence/geographic analysis in the following EXACT format:
   ITEM_START
   TITLE: [The headline]
   SUMMARY: [A 2-sentence summary]
-  URI: [The most relevant source URL from your search results]
+  URI: [The most relevant source URL]
+  SOURCE_NAME: [Identify the media outlet or author name]
+  SOURCE_TYPE: [Choose exactly one: Top-tier Media, Research Institution, KOL / Industry Expert, General Source]
+  DISSEMINATION: [Choose exactly one: Niche, Growing, Widespread, Global]
+  IMPACT_SCORE: [A number from 0 to 100 based on the technological or market significance]
+  GEOGRAPHY: [Specific city/country mentioned OR "Global" if multiple/none]
+  LAT_LNG: [Latitude, Longitude of the geography, e.g. 37.7749, -122.4194. Use 0,0 for Global]
   ITEM_END
 
-  Ensure exactly 10 items are returned if available. Be objective and technical.`;
+  Categorize source authority and dissemination breadth objectively.`;
 
   try {
     const response: GenerateContentResponse = await ai.models.generateContent({
@@ -42,7 +53,6 @@ export async function fetchAiNews(keywords: string, filters: SearchFilters): Pro
     const text = response.text || "";
     const items: NewsItem[] = [];
     
-    // Parse the structured text
     const blocks = text.split('ITEM_START');
     blocks.forEach((block, index) => {
       if (!block.trim() || !block.includes('ITEM_END')) return;
@@ -50,18 +60,39 @@ export async function fetchAiNews(keywords: string, filters: SearchFilters): Pro
       const titleMatch = block.match(/TITLE:\s*(.*)/);
       const summaryMatch = block.match(/SUMMARY:\s*(.*)/);
       const uriMatch = block.match(/URI:\s*(.*)/);
+      const sourceNameMatch = block.match(/SOURCE_NAME:\s*(.*)/);
+      const sourceTypeMatch = block.match(/SOURCE_TYPE:\s*(.*)/);
+      const disseminationMatch = block.match(/DISSEMINATION:\s*(.*)/);
+      const impactScoreMatch = block.match(/IMPACT_SCORE:\s*(\d+)/);
+      const geoMatch = block.match(/GEOGRAPHY:\s*(.*)/);
+      const latLngMatch = block.match(/LAT_LNG:\s*([-.\d]+),\s*([-.\d]+)/);
       
       if (titleMatch && summaryMatch) {
+        const score = impactScoreMatch ? parseInt(impactScoreMatch[1]) : 50;
+        const lat = latLngMatch ? parseFloat(latLngMatch[1]) : 0;
+        const lng = latLngMatch ? parseFloat(latLngMatch[2]) : 0;
+        const geoName = geoMatch ? geoMatch[1].trim() : 'Global';
+
         items.push({
           id: `item-${Date.now()}-${index}`,
           title: titleMatch[1].trim(),
           summary: summaryMatch[1].trim(),
-          uri: uriMatch ? uriMatch[1].trim() : ''
+          uri: uriMatch ? uriMatch[1].trim() : '',
+          sourceName: sourceNameMatch ? sourceNameMatch[1].trim() : 'Unknown Source',
+          sourceType: (sourceTypeMatch ? sourceTypeMatch[1].trim() : 'General Source') as any,
+          disseminationLevel: (disseminationMatch ? disseminationMatch[1].trim() : 'Growing') as any,
+          influenceScore: score,
+          isHighImpact: score > 80,
+          location: geoName !== 'Global' ? {
+            name: geoName,
+            lat: lat,
+            lng: lng,
+            countryCode: 'XX'
+          } : undefined
         });
       }
     });
 
-    // Extract grounding sources for the "Verified Sources" section
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks as GroundingChunk[] | undefined;
     const sources: NewsSource[] = [];
 
@@ -79,7 +110,7 @@ export async function fetchAiNews(keywords: string, filters: SearchFilters): Pro
     const uniqueSources = sources.filter((v, i, a) => a.findIndex(t => t.uri === v.uri) === i);
 
     return { 
-      items: items.slice(0, 10), 
+      items: items.slice(0, filters.itemCount), 
       sources: uniqueSources.slice(0, 15)
     };
   } catch (error) {

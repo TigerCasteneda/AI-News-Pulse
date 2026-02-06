@@ -5,18 +5,29 @@ import SearchBar from './components/SearchBar';
 import FiltersBar from './components/FiltersBar';
 import NewsDisplay from './components/NewsDisplay';
 import SavedArticlesSection from './components/SavedArticlesSection';
+import AuthScreen from './components/AuthScreen';
+import GeographicHeatMap from './components/GeographicHeatMap';
 import { fetchAiNews } from './services/geminiService';
 import { translateArticles } from './services/translationService';
-import { NewsState, SearchFilters, SavedArticle, NewsItem, LanguageCode } from './types';
+import { NewsState, SearchFilters, SavedArticle, NewsItem, LanguageCode, User, AuthState } from './types';
 import { AlertCircle, Terminal, RefreshCw, Sparkles, LayoutGrid, Bookmark } from 'lucide-react';
 
 const App: React.FC = () => {
+  const [auth, setAuth] = useState<AuthState>(() => {
+    const stored = localStorage.getItem('ai_news_user');
+    return stored ? { user: JSON.parse(stored), isAuthenticated: true } : { user: null, isAuthenticated: false };
+  });
+
   const [activeTab, setActiveTab] = useState<'feed' | 'saved'>('feed');
-  const [keywords, setKeywords] = useState('Latest AI breakthroughs, LLM models, NVIDIA');
+  // START CHANGE: Default keywords are now empty for the user to define their own focus
+  const [keywords, setKeywords] = useState('');
+  // END CHANGE
+  
   const [filters, setFilters] = useState<SearchFilters>({
     dateRange: '7d',
     specificSource: '',
-    language: 'en'
+    language: 'en',
+    itemCount: 10
   });
   
   const [news, setNews] = useState<NewsState>({
@@ -37,9 +48,20 @@ const App: React.FC = () => {
     localStorage.setItem('ai_news_saved', JSON.stringify(savedArticles));
   }, [savedArticles]);
 
+  const handleRegister = (user: User) => {
+    localStorage.setItem('ai_news_user', JSON.stringify(user));
+    setAuth({ user, isAuthenticated: true });
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('ai_news_user');
+    setAuth({ user: null, isAuthenticated: false });
+  };
+
   const handleFetchNews = useCallback(async () => {
+    if (!auth.isAuthenticated) return;
     if (!keywords.trim()) {
-      setNews(prev => ({ ...prev, error: 'Please enter keywords to start monitoring.' }));
+      setNews(prev => ({ ...prev, error: 'Terminal Ready. Please enter targeting keywords to initiate global scan.' }));
       return;
     }
 
@@ -59,7 +81,6 @@ const App: React.FC = () => {
         lastUpdated: new Date().toLocaleTimeString()
       }));
 
-      // Automatically trigger translation if non-English language is set
       if (filters.language !== 'en' && items.length > 0) {
         handleTranslateItems(items, filters.language);
       }
@@ -67,21 +88,18 @@ const App: React.FC = () => {
       setNews(prev => ({ 
         ...prev, 
         isLoading: false, 
-        error: err.message || 'An unexpected error occurred.' 
+        error: err.message || 'An unexpected error occurred during the transmission.' 
       }));
     }
-  }, [keywords, filters]);
+  }, [keywords, filters, auth.isAuthenticated]);
 
   const handleTranslateItems = async (itemsToTranslate: NewsItem[], lang: LanguageCode) => {
-    // Only translate items that don't already have this translation
     const needsTranslation = itemsToTranslate.filter(item => !item.translations?.[lang]);
-    
     if (needsTranslation.length === 0) return;
 
     setNews(prev => ({ ...prev, isTranslating: true }));
     try {
       const translationMap = await translateArticles(needsTranslation, lang);
-      
       setNews(prev => ({
         ...prev,
         isTranslating: false,
@@ -127,11 +145,15 @@ const App: React.FC = () => {
 
   const savedIds = useMemo(() => new Set(savedArticles.map(a => a.id)), [savedArticles]);
 
-  // Initial fetch
   useEffect(() => {
-    handleFetchNews();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (auth.isAuthenticated && keywords) {
+      handleFetchNews();
+    }
+  }, [auth.isAuthenticated]);
+
+  if (!auth.isAuthenticated) {
+    return <AuthScreen onRegister={handleRegister} />;
+  }
 
   return (
     <div className="min-h-screen pb-20 custom-scrollbar overflow-y-auto bg-slate-950">
@@ -141,10 +163,11 @@ const App: React.FC = () => {
         lastUpdated={news.lastUpdated}
         currentLang={filters.language}
         onLanguageChange={onLanguageChange}
+        user={auth.user}
+        onLogout={handleLogout}
       />
 
       <main className="max-w-6xl mx-auto px-4">
-        {/* Navigation Tabs */}
         <div className="flex justify-center mb-10">
           <div className="bg-slate-900/80 p-1 rounded-2xl border border-slate-800 flex gap-1">
             <button 
@@ -178,7 +201,7 @@ const App: React.FC = () => {
                 Pulse of <span className="text-blue-500">Intelligence</span>
               </h2>
               <p className="text-slate-400 max-w-xl mx-auto text-sm md:text-base">
-                Curated AI signals from across the digital horizon. Use filters to narrow your search parameters.
+                Welcome, operator <span className="text-blue-400 font-bold">{auth.user?.username}</span>. Signal monitoring terminal active.
               </p>
             </div>
 
@@ -193,25 +216,23 @@ const App: React.FC = () => {
               setFilters={(f) => setFilters(f)}
             />
 
+            {!news.isLoading && news.items.length > 0 && (
+              <GeographicHeatMap items={news.items} />
+            )}
+
             {news.isLoading && news.items.length === 0 && (
               <div className="flex flex-col items-center justify-center py-20 animate-pulse">
                 <RefreshCw size={48} className="text-blue-600 animate-spin mb-4" />
-                <p className="text-slate-400 font-mono text-sm tracking-widest uppercase">Initializing Neural Scan...</p>
+                <p className="text-slate-400 font-mono text-sm tracking-widest uppercase">Initializing Global Scan...</p>
               </div>
             )}
 
             {news.error && (
-              <div className="bg-red-900/10 border border-red-900/50 p-8 rounded-3xl flex items-start gap-5 text-red-400 mb-12">
-                <AlertCircle className="flex-shrink-0 mt-1" size={28} />
+              <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl flex items-start gap-5 text-slate-300 mb-12">
+                <AlertCircle className="flex-shrink-0 mt-1 text-blue-500" size={28} />
                 <div>
-                  <h3 className="text-lg font-bold mb-2">Sync Error Detected</h3>
+                  <h3 className="text-lg font-bold mb-2">System Status</h3>
                   <p className="text-sm opacity-80 leading-relaxed">{news.error}</p>
-                  <button 
-                    onClick={handleFetchNews}
-                    className="mt-6 px-6 py-2 bg-red-900/30 hover:bg-red-900/50 border border-red-900/50 rounded-xl text-xs font-bold transition-all"
-                  >
-                    RE-ESTABLISH CONNECTION
-                  </button>
                 </div>
               </div>
             )}
@@ -232,7 +253,7 @@ const App: React.FC = () => {
             {!news.isLoading && news.items.length === 0 && !news.error && (
               <div className="text-center py-24 glass-effect border-2 border-dashed border-slate-800 rounded-3xl">
                 <Terminal size={48} className="mx-auto text-slate-700 mb-4" />
-                <p className="text-slate-500 font-medium">Monitoring idle. Enter keywords to begin scan.</p>
+                <p className="text-slate-500 font-medium">Terminal Idle. Enter keywords above to map current AI developments.</p>
               </div>
             )}
           </>
@@ -247,14 +268,14 @@ const App: React.FC = () => {
       </main>
 
       <footer className="mt-20 border-t border-slate-900 pt-10 pb-20 text-center">
-        <div className="max-w-xs mx-auto flex items-center justify-center gap-4 mb-6">
-          <div className="h-[1px] flex-1 bg-slate-800"></div>
-          <Sparkles className="text-slate-800" size={16} />
-          <div className="h-[1px] flex-1 bg-slate-800"></div>
-        </div>
-        <p className="text-slate-600 text-[10px] font-mono tracking-widest uppercase">
-          Neural Aggregate Engine v2.1 // Gemini-3 Flash // Multilingual Grounding 
+        <p className="text-slate-600 text-[10px] font-mono tracking-widest uppercase mb-4">
+          Neural Aggregate Engine v2.3 // Authored for {auth.user?.username}
         </p>
+        <div className="flex items-center justify-center gap-4 text-slate-800">
+           <span className="w-1.5 h-1.5 rounded-full bg-slate-800"></span>
+           <span className="w-1.5 h-1.5 rounded-full bg-slate-800"></span>
+           <span className="w-1.5 h-1.5 rounded-full bg-slate-800"></span>
+        </div>
       </footer>
     </div>
   );
